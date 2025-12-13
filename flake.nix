@@ -32,15 +32,22 @@
           pkgs.stdenv.cc
           pkgs.libGL
           pkgs.gcc
-          #pkgs.gcc.cc.lib
           pkgs.glib
           pkgs.libz
           pkgs.glibc
-          #pkgs.glibc.dev
         ];
+        runServer = pkgs.writeScriptBin "runserver.sh" ''
+          #!${pkgs.bash}/bin/bash
+          python src/vit/server.py "ipc:///tmp/vit.ipc"
+        '';
+
       in
       with pkgs;
       rec {
+        apps.default = {
+          type = "app";
+          program = "${runServer}/bin/runserver.sh";
+        };
         packages = {
           vit = pkgs.python3.pkgs.callPackage ./nix/vit.nix { };
         };
