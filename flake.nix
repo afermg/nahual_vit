@@ -38,7 +38,7 @@
         ];
         runServer = pkgs.writeScriptBin "runserver.sh" ''
           #!${pkgs.bash}/bin/bash
-          python src/vit/server.py "ipc:///tmp/vit.ipc"
+          python src/vit/server.py ''${@:-"ipc:///tmp/vit.ipc"}
         '';
 
       in
