@@ -12,14 +12,10 @@ from loguru import logger
 from nahual.server import responder
 from transformers import AutoModel
 
-# address = "ipc:///tmp/openphenom.ipc"
-address = sys.argv[1]
-
-
-logger.add(address.split("/")[-1])
-
-shape_guardrails = {
-    "recursionpharma/OpenPhenom": (6, 256, 256),
+# We will use pre-existing information to enforce guardrails on the input data
+# model -> (expected #channels, mandated shape of yx)
+guardrail_shapes = {
+    "recursionpharma/OpenPhenom": (6, (256, 256)),
 }
 
 
@@ -28,6 +24,8 @@ def setup(model_name: str, **kwargs) -> dict:
     device_id = kwargs.get("device", 0)
 
     setup_defaults = dict(
+        trust_remote_code=True,
+        dtype="auto",
         device=torch.device(device_id),
     )
     execution_defaults = dict()
@@ -35,27 +33,16 @@ def setup(model_name: str, **kwargs) -> dict:
     setup_kwargs = kwargs.get("setup_kwargs", {})
     execution_kwargs = kwargs.get("setup_kwargs", {})
 
-    # Fill kwargs with default
-    # for k, v in setup_defaults.items():
-    #     setup_defaults[k] = setup_kwargs.pop(kwargs, v)
-
-    # for k, v in execution_defaults.items():
-    #     execution_defaults[k] = execution_kwargs.pop(kwargs, v)
-
     # Define parameters by combining defaults and non-defaults
     setup_params = {**setup_defaults, **setup_kwargs}
     execution_params = {**execution_defaults, **execution_kwargs}
 
-    use_gpu = setup_params.pop("gpu", True)
     # Load model instance
-    model = AutoModel.from_pretrained(
-        "recursionpharma/OpenPhenom",
-        trust_remote_code=True,
-        dtype="auto",
-        **setup_defaults,
-    ).cuda()
+    model = AutoModel.from_pretrained(model_name, **setup_defaults).cuda()
 
-    execution_params["shape_guardrails"] = shape_guardrails[model_name]
+    expected_channels, yx_shape = guardrail_shapes[model_name]
+    execution_params["expected_channels"] = expected_channels
+    execution_params["expected_yx"] = yx_shape
 
     # Generate a json-encodable dictionary to send back to the client
     serializable_params = {
@@ -92,18 +79,43 @@ async def main():
 
 
 def process_pixels(
-    pixels: numpy.ndarray, model: transformers.modeling_utils.PreTrainedModel, **kwargs
+    pixels: numpy.ndarray,
+    model: transformers.modeling_utils.PreTrainedModel,
+    expected_yx: tuple[int],
+    expected_channels: int,
 ) -> numpy.ndarray:
-    """Apply a pretrained model"""
+    """Apply a pretrained model. We pass arguments that encode the necessary input shapes and number of channels to pad. We will valudate the yx dimensions and pad the channel dimension with zeros.
 
-    shape_guardrail = kwargs.pop("shape_guardrail")
-    assert pixels.shape[-3:] == shape_guardrail, (
-        f"Invalid input shape {pixels.shape}. Last dims should be {shape_guardrail}."
+    The pixels should be in order NCZYX (Tile, Channel, ZYX).
+    """
+
+    _, input_channels, input_z, *input_yx = pixels.shape
+    print(f"Shape: {pixels.shape}")
+    input_yx = tuple(input_yx)
+    assert input_yx == expected_yx, (
+        f"Invalid input shape {input_yx}. Last dims should be {expected_yx}. All dimensions are {pixels.shape}"
     )
+    assert input_z == 1, f"{input_z=}. It should be 1"
+
+    assert 0 < input_channels <= 6, (
+        f"Channel dimension of size {expected_channels} should be between 1 and 7"
+    )
+
+    pixels = pixels[:, :, 0]  # Remove the z-stack
+    # If not enough dimensions, pad with zeros
+    to_pad = expected_channels - input_channels
+    padding_shape = list(pixels.shape)
+    padding_shape[1] = to_pad
+
+    if to_pad:
+        pixels = numpy.concatenate(
+            (pixels, numpy.zeros(padding_shape, dtype=pixels.dtype)), axis=1
+        )
+
     pixels_torch = torch.from_numpy(pixels).float().cuda()
-    # TODO make this general, for now the output is fixed
-    embeddings, _, _ = model(pixels_torch, **kwargs)  # embeddings, reconstruction, mask
-    # [torch.Size([1, 1537, 384]), torch.Size([1, 1536, 256]), torch.Size([1, 1536])]
+
+    embeddings = model.predict(pixels_torch)
+    # OpenPhenom: (N, 384)
 
     embeddings_np = embeddings.cpu().detach().numpy()
 
@@ -111,6 +123,11 @@ def process_pixels(
 
 
 if __name__ == "__main__":
+    # address = "ipc:///tmp/vit.ipc"
+    address = sys.argv[1]
+
+    logger.add(address.split("/")[-1])
+
     try:
         trio.run(main)
     except KeyboardInterrupt:

@@ -1,10 +1,11 @@
 [project]
-name = "nahual-transformers"
+name = "nahual-vit"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    # "nahual>=0.0.6",
     "timm>=1.0.22",
     "torch>=2.9.1",
     "transformers>=4.57.3",

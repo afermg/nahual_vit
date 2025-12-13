@@ -6,6 +6,7 @@
     systems.url = "github:nix-systems/default";
     flake-utils.url = "github:numtide/flake-utils";
     flake-utils.inputs.systems.follows = "systems";
+    nahual-flake.url = "github:afermg/nahual";
   };
 
   outputs =
@@ -41,15 +42,15 @@
       with pkgs;
       rec {
         packages = {
-          # xformers = pkgs.python312.pkgs.callPackage ./nix/xformers.nix { };
-          nahual_vit = pkgs.python3.pkgs.callPackage ./nix/nahual_vit.nix { };
+          vit = pkgs.python3.pkgs.callPackage ./nix/vit.nix { };
         };
         devShells = {
           default =
             let
               python_with_pkgs = (
                 python3.withPackages (pp: [
-                  packages.nahual_vit
+                  (inputs.nahual-flake.packages.${system}.nahual)
+                  packages.vit
                 ])
               );
             in
@@ -69,8 +70,8 @@
                 unset SOURCE_DATE_EPOCH
               '';
               shellHook = ''
-                runHook venvShellHook
                 # Set PYTHONPATH to only include the Nix packages, excluding current directory
+                runHook venvShellHook
                 export PYTHONPATH=${python_with_pkgs}/${python_with_pkgs.sitePackages}
               '';
             };

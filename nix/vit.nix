@@ -12,7 +12,7 @@
   jupyter,
 }:
 buildPythonPackage {
-  pname = "nahual_transformers";
+  pname = "vit";
   version = "0.0.1";
 
   src = ./..; # For local testing, add flag --impure when running
@@ -39,8 +39,8 @@ buildPythonPackage {
   ];
 
   meta = {
-    description = "transformers";
-    homepage = "https://github.com/afermg/nahual_transformers";
+    description = "Generic environment for visual transformers.";
+    homepage = "https://github.com/afermg/nahual_vit";
     license = lib.licenses.mit;
   };
 }

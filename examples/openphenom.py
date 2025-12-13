@@ -10,6 +10,7 @@ model = AutoModel.from_pretrained(
 tile_size = 256
 data = numpy.random.random_sample((1, 6, tile_size, tile_size))
 torch_tensor = torch.from_numpy(data).float().cuda()
-result = model(torch_tensor)
+result = model.predict(torch_tensor)
 print([x.shape for x in result])
-# [torch.Size([1, 1537, 384]), torch.Size([1, 1536, 256]), torch.Size([1, 1536])]
+# torch.Size([1, 384])
+np_val = result.cpu().detach().numpy()
