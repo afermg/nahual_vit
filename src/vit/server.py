@@ -9,13 +9,14 @@ import torch
 import transformers
 import trio
 from loguru import logger
+from nahual.preprocess import pad_channel_dim, validate_input_shape
 from nahual.server import responder
 from transformers import AutoModel
 
 # We will use pre-existing information to enforce guardrails on the input data
 # model -> (expected #channels, mandated shape of yx)
 guardrail_shapes = {
-    "recursionpharma/OpenPhenom": (6, (256, 256)),
+    "recursionpharma/OpenPhenom": (6, (1, 256, 256)),
 }
 
 
@@ -81,7 +82,7 @@ async def main():
 def process_pixels(
     pixels: numpy.ndarray,
     model: transformers.modeling_utils.PreTrainedModel,
-    expected_yx: tuple[int],
+    expected_zyx: tuple[int],
     expected_channels: int,
 ) -> numpy.ndarray:
     """Apply a pretrained model. We pass arguments that encode the necessary input shapes and number of channels to pad. We will valudate the yx dimensions and pad the channel dimension with zeros.
@@ -89,28 +90,11 @@ def process_pixels(
     The pixels should be in order NCZYX (Tile, Channel, ZYX).
     """
 
-    _, input_channels, input_z, *input_yx = pixels.shape
-    print(f"Shape: {pixels.shape}")
-    input_yx = tuple(input_yx)
-    assert input_yx == expected_yx, (
-        f"Invalid input shape {input_yx}. Last dims should be {expected_yx}. All dimensions are {pixels.shape}"
-    )
-    assert input_z == 1, f"{input_z=}. It should be 1"
+    _, input_channels, input_zyx = pixels.shape
 
-    assert 0 < input_channels <= 6, (
-        f"Channel dimension of size {expected_channels} should be between 1 and 7"
-    )
+    validate_input_shape(input_zyx, expected_zyx)
 
-    pixels = pixels[:, :, 0]  # Remove the z-stack
-    # If not enough dimensions, pad with zeros
-    to_pad = expected_channels - input_channels
-    padding_shape = list(pixels.shape)
-    padding_shape[1] = to_pad
-
-    if to_pad:
-        pixels = numpy.concatenate(
-            (pixels, numpy.zeros(padding_shape, dtype=pixels.dtype)), axis=1
-        )
+    pixels = pad_channel_dim(pixels, expected_channels)
 
     pixels_torch = torch.from_numpy(pixels).float().cuda()
 
