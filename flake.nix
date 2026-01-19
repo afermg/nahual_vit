@@ -44,10 +44,21 @@
       in
       with pkgs;
       rec {
-        apps.default = {
-          type = "app";
-          program = "${runServer}/bin/runserver.sh";
-        };
+        apps.default =
+          let
+            python_with_pkgs = python3.withPackages (pp: [
+              (inputs.nahual-flake.packages.${system}.nahual)
+              packages.vit
+            ]);
+            runServer = pkgs.writeScriptBin "runserver.sh" ''
+              #!${pkgs.bash}/bin/bash
+              ${python_with_pkgs}/bin/python ${self}/src/vit/server.py ''${@:-"ipc:///tmp/vit.ipc"}
+            '';
+          in
+          {
+            type = "app";
+            program = "${runServer}/bin/runserver.sh";
+          };
         packages = {
           vit = pkgs.python3.pkgs.callPackage ./nix/vit.nix { };
         };
