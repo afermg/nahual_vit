@@ -16,7 +16,7 @@ from transformers import AutoModel
 # We will use pre-existing information to enforce guardrails on the input data
 # model -> (expected #channels, mandated shape of yx)
 guardrail_shapes = {
-    "recursionpharma/OpenPhenom": (6, 2),
+    "recursionpharma/OpenPhenom": (6, 16),
 }
 
 
