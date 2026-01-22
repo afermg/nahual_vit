@@ -16,7 +16,7 @@ from transformers import AutoModel
 # We will use pre-existing information to enforce guardrails on the input data
 # model -> (expected #channels, mandated shape of yx)
 guardrail_shapes = {
-    "recursionpharma/OpenPhenom": (6, (1, 256, 256)),
+    "recursionpharma/OpenPhenom": (6, 2),
 }
 
 
@@ -82,7 +82,7 @@ async def main():
 def process_pixels(
     pixels: numpy.ndarray,
     model: transformers.modeling_utils.PreTrainedModel,
-    expected_zyx: tuple[int],
+    expected_yx: tuple[int],
     expected_channels: int,
 ) -> numpy.ndarray:
     """Apply a pretrained model. We pass arguments that encode the necessary input shapes and number of channels to pad. We will valudate the yx dimensions and pad the channel dimension with zeros.
@@ -90,9 +90,9 @@ def process_pixels(
     The pixels should be in order NCZYX (Tile, Channel, ZYX).
     """
 
-    _, input_channels, input_zyx = pixels.shape
+    _, input_channels, _, *input_yx = pixels.shape
 
-    validate_input_shape(input_zyx, expected_zyx)
+    validate_input_shape(input_yx, expected_yx)
 
     pixels = pad_channel_dim(pixels, expected_channels)
 
