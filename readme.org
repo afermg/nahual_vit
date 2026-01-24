@@ -1,0 +1,7 @@
+#+TITLE: ViT deployments for Nahual
+
+Combine a variety of ViT models with similar dependencies and share abstractions for [[https://github.com/afermg/nahual][nahual]]-based deployment.
+
+We currently support:
+- [[https://huggingface.co/recursionpharma/OpenPhenom][OpenPhenom]]
+- [[https://huggingface.co/CaicedoLab/MorphEm][MorphEM]]
