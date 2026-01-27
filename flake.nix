@@ -21,7 +21,7 @@
       system:
       let
         pkgs = import nixpkgs {
-          system = system;
+          inherit system;
           config = {
             allowUnfree = true;
             cudaSupport = true;
@@ -39,38 +39,32 @@
       in
       with pkgs;
       rec {
-        apps =
-          let
+        scripts = let
             python_with_pkgs = python3.withPackages (pp: [
               (inputs.nahual-flake.packages.${system}.nahual)
               packages.vit
             ]);
-            runServer = pkgs.writeScriptBin "runserver.sh" ''
-            #!${pkgs.bash}/bin/bash
-            ${python_with_pkgs}/bin/python ${self}/src/vit/''${1:-morphem}.py ''${2:-"ipc:///tmp/vit.ipc"}
-            '';
-            runServerMorphem = pkgs.writeScriptBin "run_morphem.sh" ''
-            #!${pkgs.bash}/bin/bash
-            ${python_with_pkgs}/bin/python ${self}/src/vit/morphem.py ''${1:-"ipc:///tmp/morphem.ipc"}
-            '';
-            runServerOpenphenom = pkgs.writeScriptBin "run_openphenom.sh" ''
-            #!${pkgs.bash}/bin/bash
-            ${python_with_pkgs}/bin/python ${self}/src/vit/openphenom.py ''${1:-"ipc:///tmp/openphenom.ipc"}
-            '';
-          in
-          {
-            default = {
-              type = "app";
-              program = "${runServer}/bin/runserver.sh";
-            };
+            in 
+              {
+                runMorphem = pkgs.writeScriptBin "run_morphem" ''
+                 #!${pkgs.bash}/bin/bash
+                    ${python_with_pkgs}/bin/python ${self}/src/vit/morphem.py ''${1:-"ipc:///tmp/morphem.ipc"}
+                      '';
+                runOpenphenom = pkgs.writeScriptBin "run_openphenom" ''
+                  #!${pkgs.bash}/bin/bash
+                   ${python_with_pkgs}/bin/python ${self}/src/vit/openphenom.py ''${1:-"ipc:///tmp/openphenom.ipc"}
+                '';
+              };
+        apps = rec {
             morphem = {
               type = "app";
-              program = "${runServerMorphem}/bin/run_morphem.sh";
+              program = "${self.scripts.${stdenv.hostPlatform.system}.runMorphem}/bin/run_morphem";
             };
             openphenom = {
               type = "app";
-              program = "${runServerOpenphenom}/bin/run_openphenom.sh";
+              program = "${self.scripts.${stdenv.hostPlatform.system}.runOpenphenom}/bin/run_openphenom";
             };
+            default = morphem;
           };
 
         packages = {
