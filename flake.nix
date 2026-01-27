@@ -36,29 +36,43 @@
           pkgs.libz
           pkgs.glibc
         ];
-        runServer = pkgs.writeScriptBin "runserver.sh" ''
-          #!${pkgs.bash}/bin/bash
-          python src/vit/server.py ''${@:-"ipc:///tmp/vit.ipc"}
-        '';
-
       in
       with pkgs;
       rec {
-        apps.default =
+        apps =
           let
             python_with_pkgs = python3.withPackages (pp: [
               (inputs.nahual-flake.packages.${system}.nahual)
               packages.vit
             ]);
             runServer = pkgs.writeScriptBin "runserver.sh" ''
-              #!${pkgs.bash}/bin/bash
-              ${python_with_pkgs}/bin/python ${self}/src/vit/server.py ''${@:-"ipc:///tmp/vit.ipc"}
+            #!${pkgs.bash}/bin/bash
+            ${python_with_pkgs}/bin/python ${self}/src/vit/''${1:-morphem}.py ''${2:-"ipc:///tmp/vit.ipc"}
+            '';
+            runServerMorphem = pkgs.writeScriptBin "run_morphem.sh" ''
+            #!${pkgs.bash}/bin/bash
+            ${python_with_pkgs}/bin/python ${self}/src/vit/morphem.py ''${1:-"ipc:///tmp/morphem.ipc"}
+            '';
+            runServerOpenphenom = pkgs.writeScriptBin "run_openphenom.sh" ''
+            #!${pkgs.bash}/bin/bash
+            ${python_with_pkgs}/bin/python ${self}/src/vit/openphenom.py ''${1:-"ipc:///tmp/openphenom.ipc"}
             '';
           in
           {
-            type = "app";
-            program = "${runServer}/bin/runserver.sh";
+            default = {
+              type = "app";
+              program = "${runServer}/bin/runserver.sh";
+            };
+            morphem = {
+              type = "app";
+              program = "${runServerMorphem}/bin/run_morphem.sh";
+            };
+            openphenom = {
+              type = "app";
+              program = "${runServerOpenphenom}/bin/run_openphenom.sh";
+            };
           };
+
         packages = {
           vit = pkgs.python3.pkgs.callPackage ./nix/vit.nix { };
         };
