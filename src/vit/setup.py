@@ -36,6 +36,7 @@ def setup_base(model_name: str, process_pixels: Callable, **kwargs) -> dict:
 
     # Load model instance
     model = AutoModel.from_pretrained(model_name, **setup_params).to(device)
+    model.eval()
 
     expected_channels, yx_shape = guardrail_shapes[model_name]
     execution_params["expected_channels"] = expected_channels

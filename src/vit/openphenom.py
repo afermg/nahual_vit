@@ -63,10 +63,11 @@ def process_pixels(
 
     pixels_torch = torch.from_numpy(pixels).float().to(device)
 
-    embeddings = model.predict(pixels_torch)
-    # OpenPhenom: (N, 384)
+    with torch.no_grad():
+        embeddings = model.predict(pixels_torch)
+        # OpenPhenom: (N, 384)
 
-    embeddings_np = embeddings.cpu().detach().numpy()
+        embeddings_np = embeddings.cpu().detach().numpy()
 
     return embeddings_np
 
