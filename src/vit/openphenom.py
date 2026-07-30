@@ -75,9 +75,12 @@ def process_pixels(
 
     validate_input_shape(input_yx, expected_yx)
 
-    pixels = pad_channel_dim(pixels, expected_channels)
+    if expected_channels is not None:
+        pixels = pad_channel_dim(pixels, expected_channels)
 
-    pixels_torch = torch.from_numpy(pixels).float().to(device)
+    # Hugging Face vision models consume NCHW; Nahual's input contract is NCZYX.
+    pixels = pixels[:, :, 0, :, :]
+    pixels_torch = torch.from_numpy(pixels.copy()).float().to(device)
 
     with torch.no_grad():
         embeddings = model.predict(pixels_torch)
