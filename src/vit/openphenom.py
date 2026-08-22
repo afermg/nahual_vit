@@ -36,13 +36,14 @@ async def main():
     None
     """
 
-    with pynng.Rep0(listen=address, recv_timeout=300) as sock:
+    with pynng.Rep0(listen=address, recv_timeout=300_000) as sock:
         print(f"Pretrained ViT server listening on {address}")
         async with trio.open_nursery() as nursery:
             responder_curried = partial(responder, setup=setup)
             nursery.start_soon(responder_curried, sock)
 
 
+@torch.inference_mode()
 def process_pixels(
     pixels: numpy.ndarray,
     model: transformers.modeling_utils.PreTrainedModel,
@@ -79,11 +80,10 @@ def process_pixels(
 
     pixels_torch = torch.from_numpy(pixels).float().to(device)
 
-    with torch.no_grad():
-        embeddings = model.predict(pixels_torch)
-        # OpenPhenom: (N, 384)
+    embeddings = model.predict(pixels_torch)
+    # OpenPhenom: (N, 384)
 
-        embeddings_np = embeddings.cpu().detach().numpy()
+    embeddings_np = embeddings.cpu().detach().numpy()
 
     return embeddings_np
 

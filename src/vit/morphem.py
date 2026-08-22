@@ -38,7 +38,7 @@ async def main():
     None
     """
 
-    with pynng.Rep0(listen=address, recv_timeout=300) as sock:
+    with pynng.Rep0(listen=address, recv_timeout=300_000) as sock:
         print(f"Pretrained ViT server listening on {address}")
         async with trio.open_nursery() as nursery:
             responder_curried = partial(responder, setup=setup)
@@ -54,6 +54,7 @@ def transform(pixels: numpy.ndarray):
     return transform_fn(pixels)
 
 
+@torch.inference_mode()
 def process_pixels(
     pixels: numpy.ndarray,
     model: transformers.modeling_utils.PreTrainedModel,
@@ -93,21 +94,20 @@ def process_pixels(
     pixels = pixels[:, :, 0, :, :]
     n_channels = pixels.shape[1]
 
-    with torch.no_grad():
-        batch_feat = []
-        pixels_torch = torch.from_numpy(pixels).float().to(device)
+    batch_feat = []
+    pixels_torch = torch.from_numpy(pixels).float().to(device)
 
-        for c in range(n_channels):
-            # Extract single channel: (N, C, H, W) -> (N, 1, H, W)
-            single_channel = pixels_torch[:, c, :, :].unsqueeze(1)
+    for c in range(n_channels):
+        # Extract single channel: (N, C, H, W) -> (N, 1, H, W)
+        single_channel = pixels_torch[:, c, :, :].unsqueeze(1)
 
-            # Apply transforms
-            single_channel = transform(single_channel.squeeze(1)).unsqueeze(1)
+        # Apply transforms
+        single_channel = transform(single_channel.squeeze(1)).unsqueeze(1)
 
-            # Extract features
-            output = model.forward_features(single_channel)
-            feat_temp = output["x_norm_clstoken"].cpu().detach().numpy()
-            batch_feat.append(feat_temp)
+        # Extract features
+        output = model.forward_features(single_channel)
+        feat_temp = output["x_norm_clstoken"].cpu().detach().numpy()
+        batch_feat.append(feat_temp)
 
     # Concatenate features from all channels
     embeddings_np = numpy.concatenate(batch_feat, axis=1)
